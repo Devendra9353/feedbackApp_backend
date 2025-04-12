@@ -4,7 +4,8 @@ const mongoose = require("mongoose");
 const cloudinary = require("cloudinary").v2;
 const path = require("path");
 const multer = require("multer");
-
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 exports.getAllUsers = async (req, res) => {
   const allUsers = await user.find({});
   console.log(allUsers);
@@ -47,15 +48,21 @@ exports.loginUser = async (req, res) => {
   if (!userDetail) {
     return res.status(404).json({ message: "User not found" });
   }
-
-  if (userDetail.password !== password) {
+  const validUser = await bcrypt.compare(password, userDetail.password);
+  if (!validUser) {
     return res.status(401).json({ message: "Invalid password" });
   }
   // User is authenticated, you can return user details or a token
-
+  const token = jwt.sign(
+    { id: userDetail._id, name: userDetail.name },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: "2d",
+    }
+  );
   const reviews = await Review.find({ hostId: userDetail._id });
   console.log("logged in successfully", userDetail, reviews);
-  res.status(200).json({ user: userDetail, reviews });
+  res.status(200).json({ user: userDetail, reviews, token });
 };
 
 cloudinary.config({
@@ -74,24 +81,24 @@ const storage = multer.diskStorage({
 exports.upload = multer({ storage: storage });
 
 exports.registerUser = async (req, res) => {
-  const file = req.file.path;
+  // const file = req.file.path;
   // console.log(file);
   const { name, email, password } = req.body;
   const userExist = await user.findOne({ email });
   if (userExist)
     return res.status(400).json({ message: "User already exists" });
-  const cloudinaryRes = await cloudinary.uploader.upload(file, {
-    folder: "nodejs_website",
-  });
-
+  // const cloudinaryRes = await cloudinary.uploader.upload(file, {
+  //   folder: "nodejs_website",
+  // });
+  const hashedPassword = await bcrypt.hash(password, 10);
   //creating User
   const db = await user.create({
     name,
     email,
-    password,
-    fileName: file.originalname,
-    public_id: cloudinaryRes.public_id,
-    imgUrl: cloudinaryRes.secure_url,
+    password: hashedPassword,
+    // fileName: file.originalname,
+    // public_id: cloudinaryRes.public_id,
+    // imgUrl: cloudinaryRes.secure_url,
   });
   res.json(db);
 };
