@@ -81,24 +81,24 @@ const storage = multer.diskStorage({
 exports.upload = multer({ storage: storage });
 
 exports.registerUser = async (req, res) => {
-  // const file = req.file.path;
+  const file = req.file.path;
   // console.log(file);
   const { name, email, password } = req.body;
   const userExist = await user.findOne({ email });
   if (userExist)
     return res.status(400).json({ message: "User already exists" });
-  // const cloudinaryRes = await cloudinary.uploader.upload(file, {
-  //   folder: "nodejs_website",
-  // });
+  const cloudinaryRes = await cloudinary.uploader.upload(file, {
+    folder: "nodejs_website",
+  });
   const hashedPassword = await bcrypt.hash(password, 10);
   //creating User
   const db = await user.create({
     name,
     email,
     password: hashedPassword,
-    // fileName: file.originalname,
-    // public_id: cloudinaryRes.public_id,
-    // imgUrl: cloudinaryRes.secure_url,
+    fileName: file.originalname,
+    public_id: cloudinaryRes.public_id,
+    imgUrl: cloudinaryRes.secure_url,
   });
   res.json(db);
 };
